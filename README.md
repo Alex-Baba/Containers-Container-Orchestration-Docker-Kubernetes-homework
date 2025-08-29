@@ -104,6 +104,11 @@ spec:
               port: 8000
             initialDelaySeconds: 5
             periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+            limits:
+              cpu: 500m
 ```
 
 ## 6. Service Manifest Example
@@ -172,7 +177,43 @@ If using Traefik, port-forward port 80:
 kubectl port-forward -n kube-system svc/traefik 80:80
 ```
 
-## 10. Access Your App
+## 10. Horizontal Pod Autoscaler (HPA)
+
+Create `hpa.yaml`:
+
+```yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: main-app-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: main-app
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50
+```
+
+Apply it:
+```sh
+kubectl apply -f hpa.yaml
+```
+
+Check HPA status:
+```sh
+kubectl get hpa
+kubectl describe hpa main-app-hpa
+```
+
+## 11. Access Your App
 
 Open [http://main-app.local](http://main-app.local) in your browser.
 
@@ -181,7 +222,7 @@ You should see:
 Hello from ConfigMap! I am Groot! | Secret: secret_value
 ```
 
-## 11. Troubleshooting
+## 12. Troubleshooting
 
 - Check pod logs:
   ```sh
@@ -198,5 +239,10 @@ Hello from ConfigMap! I am Groot! | Secret: secret_value
 - Check ingress status:
   ```sh
   kubectl get ingress
-  kubectl describe ingress main-app-
-```
+  kubectl describe ingress main-app-ingress
+  ```
+- Check HPA status:
+  ```sh
+  kubectl get hpa
+  kubectl describe hpa main-app
+  ```
