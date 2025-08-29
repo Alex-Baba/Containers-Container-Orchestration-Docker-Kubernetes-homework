@@ -1,5 +1,7 @@
 from flask import Flask
 import os
+import time
+import threading
 
 # Create the Flask application
 app = Flask(__name__)
@@ -14,6 +16,17 @@ def hello_world():
 @app.route("/health")
 def health():
     return "OK", 200
+
+# Example: Write a counter every X minutes
+def write_counter():
+    counter = 0
+    g="I am Groot"
+    while True:
+        with open("/data/counter.txt", "a") as f:
+            f.write(str(g) + "\n")
+        time.sleep(10)  # every 10 seconds
+
+threading.Thread(target=write_counter, daemon=True).start()
 
 # Run the app
 if __name__ == "__main__":

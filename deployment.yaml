@@ -45,3 +45,10 @@ spec:
               cpu: 100m
             limits:
               cpu: 500m
+          volumeMounts:
+            - name: counter-volume
+              mountPath: /data
+      volumes:
+        - name: counter-volume
+          persistentVolumeClaim:
+            claimName: main-app-pvc
