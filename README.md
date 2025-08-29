@@ -106,5 +106,97 @@ spec:
             periodSeconds: 5
 ```
 
-**Liveness and readiness probes** use the `/health` endpoint in your Flask app to check if the container is running and ready to serve traffic.  
-If `/health` fails, Kubernetes will restart the container (liveness) or stop sending traffic
+## 6. Service Manifest Example
+
+Your `service.yaml` should expose your app:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: main-app-service
+spec:
+  type: NodePort
+  selector:
+    app: main-app
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+      nodePort: 30080
+```
+
+## 7. Ingress Manifest Example
+
+Add an ingress to route traffic from a custom domain:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: main-app-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+    - host: main-app.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: main-app-service
+                port:
+                  number: 8000
+```
+
+Apply it:
+```sh
+kubectl apply -f ingress.yaml
+```
+
+## 8. Hosts File Setup
+
+Add this line to your machine’s hosts file (`C:\Windows\System32\drivers\etc\hosts` on Windows):
+
+```
+127.0.0.1 main-app.local
+```
+
+## 9. Expose Ingress Controller (Traefik Example)
+
+If using Traefik, port-forward port 80:
+
+```sh
+kubectl port-forward -n kube-system svc/traefik 80:80
+```
+
+## 10. Access Your App
+
+Open [http://main-app.local](http://main-app.local) in your browser.
+
+You should see:
+```
+Hello from ConfigMap! I am Groot! | Secret: secret_value
+```
+
+## 11. Troubleshooting
+
+- Check pod logs:
+  ```sh
+  kubectl logs <pod-name>
+  ```
+- Check environment variables inside pod:
+  ```sh
+  kubectl exec -it <pod-name> -- env
+  ```
+- Describe pod for probe status:
+  ```sh
+  kubectl describe pod <pod-name>
+  ```
+- Check ingress status:
+  ```sh
+  kubectl get ingress
+  kubectl describe ingress main-app-
+```
