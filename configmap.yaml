@@ -3,4 +3,4 @@ kind: ConfigMap
 metadata:
   name: main-config
 data:
-  APP_MESSAGE: "Hello from ConfigMap!"
+  APP_MESSAGE: "Hello from ConfigMap! I am Groot!"

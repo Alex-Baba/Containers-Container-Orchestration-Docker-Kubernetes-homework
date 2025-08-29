@@ -23,7 +23,7 @@ Your `main.py` uses two environment variables:
 
 It displays both on the homepage:
 ```
-Hello from ConfigMap! | Secret: secret_value
+Hello from ConfigMap! I am Groot! | Secret: secret_value
 ```
 
 ## 4. Kubernetes ConfigMap and Secret
@@ -37,7 +37,7 @@ kind: ConfigMap
 metadata:
   name: main-config
 data:
-  APP_MESSAGE: "Hello from ConfigMap!"
+  APP_MESSAGE: "Hello from ConfigMap! I am Groot!"
 ```
 
 **secret.yaml**
@@ -59,55 +59,52 @@ kubectl apply -f secret.yaml
 
 ## 5. Deployment Manifest Example
 
-Add environment variables to your deployment:
+Your `deployment.yaml` should include:
 
 ```yaml
-env:
-  - name: APP_MESSAGE
-    valueFrom:
-      configMapKeyRef:
-        name: main-config
-        key: APP_MESSAGE
-  - name: APP_SECRET
-    valueFrom:
-      secretKeyRef:
-        name: main-secret
-        key: APP_SECRET
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: main-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: main-app
+  template:
+    metadata:
+      labels:
+        app: main-app
+    spec:
+      containers:
+        - name: main
+          image: localhost:5000/main:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: APP_MESSAGE
+              valueFrom:
+                configMapKeyRef:
+                  name: main-config
+                  key: APP_MESSAGE
+            - name: APP_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: main-secret
+                  key: APP_SECRET
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
 ```
 
-## 6. Build, Push, and Deploy
-
-```sh
-docker build -t main-nonroot:latest -f Dockerfile .
-docker tag main-nonroot:latest localhost:5000/main:latest
-docker push localhost:5000/main:latest
-kubectl apply -f deployment.yaml
-kubectl apply -f service.yaml
-```
-
-## 7. Restart Pod (if needed)
-
-```sh
-kubectl get pods
-kubectl delete pod <pod-name>
-```
-
-## 8. Access Your App
-
-Open [http://localhost:30080](http://localhost:30080) in your browser.
-
-You should see:
-```
-Hello from ConfigMap! | Secret: secret_value
-```
-
-## 9. Troubleshooting
-
-- Check pod logs:
-  ```sh
-  kubectl logs <pod-name>
-  ```
-- Check environment variables inside pod:
-  ```sh
-  kubectl exec -it <pod-name> -- printenv
-  ```
+**Liveness and readiness probes** use the `/health` endpoint in your Flask app to check if the container is running and ready to serve traffic.  
+If `/health` fails, Kubernetes will restart the container (liveness) or stop sending traffic
