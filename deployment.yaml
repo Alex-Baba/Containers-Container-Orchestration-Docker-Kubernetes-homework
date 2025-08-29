@@ -14,6 +14,17 @@ spec:
     spec:
       containers:
         - name: main
-          image: main:latest
+          image: localhost:5000/main:latest
           ports:
             - containerPort: 8000
+          env:
+            - name: APP_MESSAGE
+              valueFrom:
+                configMapKeyRef:
+                  name: main-config
+                  key: APP_MESSAGE
+            - name: APP_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: main-secret
+                  key: APP_SECRET

@@ -15,66 +15,99 @@ docker run -p 8000:8000 main-nonroot
 - Adds a `/health` endpoint in the Flask app.
 - Includes a Docker `HEALTHCHECK` that checks `http://localhost:8000/health`.
 
-## 3. Check Container Health
+## 3. Flask App Environment Variables
 
-After running the container, check health status:
+Your `main.py` uses two environment variables:
+- `APP_MESSAGE` (from ConfigMap)
+- `APP_SECRET` (from Secret)
 
-```sh
-docker ps
+It displays both on the homepage:
 ```
-Look for `(healthy)` in the STATUS column.
-
-For detailed health info:
-
-```sh
-docker inspect --format='{{json .State.Health}}' <container_id>
+Hello from ConfigMap! | Secret: secret_value
 ```
 
-## 4. Run with Docker Compose
+## 4. Kubernetes ConfigMap and Secret
 
-```sh
-docker-compose up --build
+Create and apply these files:
+
+**configmap.yaml**
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: main-config
+data:
+  APP_MESSAGE: "Hello from ConfigMap!"
 ```
-Access the app at [http://localhost:8000](http://localhost:8000).
 
-## 5. Push Image to Local Registry (for Kubernetes)
-
-Start a local registry if not running:
-```sh
-docker run -d -p 5000:5000 --name registry registry:2
+**secret.yaml**
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: main-secret
+type: Opaque
+data:
+  APP_SECRET: c2VjcmV0X3ZhbHVl # base64 for "secret_value"
 ```
 
-Tag and push your image:
+Apply them:
 ```sh
-docker tag main-nonroot localhost:5000/main:latest
+kubectl apply -f configmap.yaml
+kubectl apply -f secret.yaml
+```
+
+## 5. Deployment Manifest Example
+
+Add environment variables to your deployment:
+
+```yaml
+env:
+  - name: APP_MESSAGE
+    valueFrom:
+      configMapKeyRef:
+        name: main-config
+        key: APP_MESSAGE
+  - name: APP_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: main-secret
+        key: APP_SECRET
+```
+
+## 6. Build, Push, and Deploy
+
+```sh
+docker build -t main-nonroot:latest -f Dockerfile .
+docker tag main-nonroot:latest localhost:5000/main:latest
 docker push localhost:5000/main:latest
-```
-
-## 6. Deploy on Kubernetes (Rancher Desktop)
-
-Apply the manifests:
-```sh
+kubectl apply -f deployment.yaml
 kubectl apply -f service.yaml
 ```
 
-### Access the App
+## 7. Restart Pod (if needed)
 
-- **NodePort:**  
-  Open [http://localhost:30080](http://localhost:30080)
+```sh
+kubectl get pods
+kubectl delete pod <pod-name>
+```
 
-- **Port Forwarding:**  
+## 8. Access Your App
+
+Open [http://localhost:30080](http://localhost:30080) in your browser.
+
+You should see:
+```
+Hello from ConfigMap! | Secret: secret_value
+```
+
+## 9. Troubleshooting
+
+- Check pod logs:
   ```sh
-  kubectl port-forward service/main-app-service 8000:8000
+  kubectl logs <pod-name>
   ```
-  Then open [http://localhost:8000](http://localhost:8000)
-
-## 7. Troubleshooting
-
-- Check pod status:
+- Check environment variables inside pod:
   ```sh
-  kubectl get pods
-  ```
-- View pod logs:
-  ```sh
-  kubectl logs
+  kubectl exec -it <pod-name> -- printenv
   ```

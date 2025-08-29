@@ -1,4 +1,5 @@
 from flask import Flask
+import os
 
 # Create the Flask application
 app = Flask(__name__)
@@ -6,7 +7,9 @@ app = Flask(__name__)
 # Define a route for the homepage
 @app.route("/")
 def hello_world():
-    return "Hello, World!"
+    message = os.getenv("APP_MESSAGE", "Hello, World!")
+    secret = os.getenv("APP_SECRET", "No secret set")
+    return f"{message} | Secret: {secret}"
 
 @app.route("/health")
 def health():
