@@ -23,7 +23,8 @@ def write_counter():
     g="I am Groot"
     while True:
         with open("/data/counter.txt", "a") as f:
-            f.write(str(g) + "\n")
+            f.write(str(g) + " counter: " + str(counter) + "\n")
+            counter += 1
         time.sleep(10)  # every 10 seconds
 
 threading.Thread(target=write_counter, daemon=True).start()

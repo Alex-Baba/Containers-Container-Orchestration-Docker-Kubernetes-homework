@@ -4,7 +4,7 @@
 
 ```sh
 docker build -t main-nonroot -f Dockerfile .
-docker run -p 8000:8000 main-nonroot
+docker run -p 8000:8000 -v %cd%\data:/data main-nonroot
 ```
 
 ## 2. Dockerfile Improvements
@@ -26,7 +26,16 @@ It displays both on the homepage:
 Hello from ConfigMap! I am Groot! | Secret: secret_value
 ```
 
-## 4. Kubernetes ConfigMap and Secret
+## 4. Counter File Persistence
+
+Your app writes a counter value to `/data/counter.txt` every X minutes.  
+- When running with Docker, the file is persisted by mounting a local folder:
+  ```sh
+  docker run -p 8000:8000 -v %cd%\data:/data main-nonroot
+  ```
+- When running in Kubernetes, the file is persisted using a PersistentVolumeClaim (PVC).
+
+## 5. Kubernetes ConfigMap and Secret
 
 Create and apply these files:
 
@@ -57,7 +66,28 @@ kubectl apply -f configmap.yaml
 kubectl apply -f secret.yaml
 ```
 
-## 5. Deployment Manifest Example
+## 6. PersistentVolumeClaim (PVC)
+
+**pvc.yaml**
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: main-app-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+```
+
+Apply it:
+```sh
+kubectl apply -f pvc.yaml
+```
+
+## 7. Deployment Manifest Example
 
 Your `deployment.yaml` should include:
 
@@ -92,6 +122,9 @@ spec:
                 secretKeyRef:
                   name: main-secret
                   key: APP_SECRET
+          volumeMounts:
+            - name: counter-volume
+              mountPath: /data
           livenessProbe:
             httpGet:
               path: /health
@@ -109,9 +142,13 @@ spec:
               cpu: 100m
             limits:
               cpu: 500m
+      volumes:
+        - name: counter-volume
+          persistentVolumeClaim:
+            claimName: main-app-pvc
 ```
 
-## 6. Service Manifest Example
+## 8. Service Manifest Example
 
 Your `service.yaml` should expose your app:
 
@@ -131,7 +168,7 @@ spec:
       nodePort: 30080
 ```
 
-## 7. Ingress Manifest Example
+## 9. Ingress Manifest Example
 
 Add an ingress to route traffic from a custom domain:
 
@@ -161,7 +198,7 @@ Apply it:
 kubectl apply -f ingress.yaml
 ```
 
-## 8. Hosts File Setup
+## 10. Hosts File Setup
 
 Add this line to your machine’s hosts file (`C:\Windows\System32\drivers\etc\hosts` on Windows):
 
@@ -169,7 +206,7 @@ Add this line to your machine’s hosts file (`C:\Windows\System32\drivers\etc\h
 127.0.0.1 main-app.local
 ```
 
-## 9. Expose Ingress Controller (Traefik Example)
+## 11. Expose Ingress Controller (Traefik Example)
 
 If using Traefik, port-forward port 80:
 
@@ -177,7 +214,7 @@ If using Traefik, port-forward port 80:
 kubectl port-forward -n kube-system svc/traefik 80:80
 ```
 
-## 10. Horizontal Pod Autoscaler (HPA)
+## 12. Horizontal Pod Autoscaler (HPA)
 
 Create `hpa.yaml`:
 
@@ -213,7 +250,7 @@ kubectl get hpa
 kubectl describe hpa main-app-hpa
 ```
 
-## 11. Access Your App
+## 13. Access Your App
 
 Open [http://main-app.local](http://main-app.local) in your browser.
 
@@ -222,7 +259,21 @@ You should see:
 Hello from ConfigMap! I am Groot! | Secret: secret_value
 ```
 
-## 12. Troubleshooting
+## 14. Check Counter File Persistence
+
+- View the file inside the pod:
+  ```sh
+  kubectl exec -it <pod-name> -- cat /data/counter.txt
+  ```
+- Delete the pod and check again:
+  ```sh
+  kubectl delete pod <pod-name>
+  kubectl get pods   # Wait for new pod to start
+  kubectl exec -it <new-pod-name> -- cat /data/counter.txt
+  ```
+- The file should still contain the previous counter values, proving persistence.
+
+## 15. Troubleshooting
 
 - Check pod logs:
   ```sh
@@ -232,17 +283,7 @@ Hello from ConfigMap! I am Groot! | Secret: secret_value
   ```sh
   kubectl exec -it <pod-name> -- env
   ```
-- Describe pod for probe status:
+- Check PVC status:
   ```sh
-  kubectl describe pod <pod-name>
-  ```
-- Check ingress status:
-  ```sh
-  kubectl get ingress
-  kubectl describe ingress main-app-ingress
-  ```
-- Check HPA status:
-  ```sh
-  kubectl get hpa
-  kubectl describe hpa main-app
+  kubectl get pvc
   ```
